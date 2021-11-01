@@ -1,128 +1,88 @@
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.linear_model import LinearRegression
+import pandas as pd
+import scipy.optimize as opt
 
-def batch_gradient_descent(x, y, w, alpha, epoch):
-    tmp = np.matrix(np.zeros(w.shape))
-    cost = np.zeros(epoch)
-    paras = w.ravel().shape[1]
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
 
-    for i in range(epoch):
-        error = x * w.T - y
-        for j in range(paras):
-            val = np.multiply(error, x[:, j])
-            tmp[0, j] = w[0, j] - alpha / len(x) * np.sum(val)
-        w = tmp
-        cost[i] = compute_cost(x, y, w)
+def gradient(w, X, y):
+    w = np.matrix(w)
+    parameters = int(w.ravel().shape[1])
+    grad = np.zeros(parameters)
 
-    return w, cost
+    error = sigmoid(X * w.T) - y
 
-def stochastic_gradient_descent(x, y, w, alpha, epoch):
-    tmp = np.matrix(np.zeros(w.shape))
-    cost = np.zeros(epoch)
-    paras = w.ravel().shape[1]
+    for i in range(parameters):
+        term = np.multiply(error, X[:, i])
+        grad[i] = np.sum(term) / len(X)
 
-    for i in range(epoch):
-        for a in range(len(x)):
-            error = x[a:a+1] * w.T - y[a]
+    return grad
 
-            for j in range(paras):
-                tmp[0, j] = w[0, j] - alpha * error * x[a:a+1, j]
-            w = tmp
-            cost[i] = compute_cost(x, y, w)
-    return w, cost
-
-def mini_batch_gradient_descent(x, y, w, alpha, mb):
-    tmp = np.matrix(np.zeros(w.shape))
-    cost = np.zeros(epoch)
-    paras = w.ravel().shape[1]
+def batch_gradient_descent(x, y, w):
+    tmp = np.zeros(w.shape)
+    paras = w.shape[1]
+    grad = np.zeros(paras)
     xlen = len(x)
 
-    for i in range(epoch):
-        for a in range(0, xlen, mb):
-            x1 = x[a:a+mb]
-            y1 = y[a:a+mb]
-            error = x1 * w.T - y1
+    error = sigmoid(x * w.T) - y
+    for j in range(paras):
+        val = np.multiply(error, x[:, j])
+        grad[j] = np.sum(val) / len(x)
 
-            for j in range(paras):
-                val = np.multiply(error, x1[:, j])
-                tmp[0, j] = w[0, j] - alpha / len(x1) * np.sum(val)
-            w = tmp
-            cost[i] = compute_cost(x1, y1, w)
-
-    return w, cost
+    return grad
 
 def compute_cost(x, y, w):
-    return np.sum(np.power(x * w.T - y, 2)) / (2 * x.shape[0])
+    xlen = len(x)
+    #reg = lamda * np.sum(np.multiply(w, w)) / (2 * xlen)
+    return (np.sum(np.multiply(-y, np.log(sigmoid(x * w.T))) - np.multiply((1 - y), np.log(sigmoid(x * w.T))))) / xlen
 
+def cost(w, X, y):
+    w = np.matrix(w)
+    first = np.multiply(-y, np.log(sigmoid(X * w.T)))
+    second = np.multiply((1 - y), np.log(1 - sigmoid(X * w.T)))
+    return np.sum(first - second) / (len(X))
 
 if __name__ == "__main__":
-    plt.rcParams['font.sans-serif'] = ['SimHei']
+    plt.rcParams['font.sans-serif'] = ['simhei']
     plt.rcParams['axes.unicode_minus'] = False
     np.set_printoptions(suppress=True)
 
-    path = 'regress_data1.csv'
-    data = pd.read_csv(path)
+    path = 'ex2data1.txt'
+    data = pd.read_csv(path, header=None, names=['Exam1', 'Exam2', 'Admitted'])
 
-    x = data.iloc[:, [0]]
-    y = data.iloc[:, [1]]
-
-    #plt.scatter(x, y, s=16)
-    plt.figure(facecolor='w', figsize=(12, 8))
-    plt.plot(x, y, 'o', ms=4)
-    plt.xlabel('人口')
-    plt.ylabel('收益')
-    #plt.show()
+    positive = data[data['Admitted'].isin([1])]
+    negative = data[data['Admitted'].isin([0])]
 
     data.insert(0, 'Ones', 1)
-    x = data.iloc[:, :2]
-    w = np.matrix(np.zeros((1, 2)))
-    x = np.matrix(x.values)
-    y = np.matrix(y.values)
-    
-    alpha = 0.01
-    epoch = 1000
-    mb = 32
-    g, cost = batch_gradient_descent(x, y, w, alpha, epoch)
-    print("批量梯度下降")
-    print(g)
-    y_hat = x * g.T
-    mse = np.average((np.array(y_hat) - np.array(y)) ** 2)
-    print("损失")
-    print(mse)
+    cols = data.shape[1]
 
-    g, cost = stochastic_gradient_descent(x, y, w, alpha, epoch)
-    print("随机梯度下降")
-    print(g)
-    y_hat1 = x * g.T
-    mse = np.average((np.array(y_hat1) - np.array(y)) ** 2)
-    print("损失")
-    print(mse)
+    x = data.iloc[:,0:cols-1]
+    y = data.iloc[:,cols-1:cols]
 
-    g, cost = mini_batch_gradient_descent(x, y, w, alpha, mb)
-    print("小批量梯度下降")
-    print(g)
-    y_hat2 = x * g.T
-    mse = np.average((np.array(y_hat2) - np.array(y)) ** 2)
-    print("损失")
-    print(mse)
-
-    linear = LinearRegression()
-    linear.fit(x, y)
-    print("sklearn 线性回归")
-    print(linear.intercept_, linear.coef_[0])
-
-    y_hat3 = linear.predict(x)
-    mse = np.average((y_hat3 - np.array(y)) ** 2)
-    print("损失")
-    print(mse)
-
-    x = data.iloc[:, 1:2]
-
-    plt.plot(x, y_hat, 'r', label='批')
-    plt.plot(x, y_hat1, 'g', label="随机")
-    plt.plot(x, y_hat2, 'b', label="小批")
-    plt.plot(x, y_hat3, 'y', label="sk")
+    """
+    plt.figure(facecolor='w', figsize=(12, 8))
+    plt.scatter(positive['Exam1'], positive['Exam2'], s=50, c='b', marker='o', label='Admitted')
+    plt.scatter(negative['Exam1'], negative['Exam2'], s=50, c='r', marker='x', label='Not Admitted')
     plt.legend()
-    plt.show()
+    plt.title('人口收益关系图')
+    plt.xlabel('Exam1')
+    plt.ylabel('exam2')
+    """
+    #plt.show()
+
+    x = np.matrix(np.array(x.values))
+    y = np.matrix(np.array(y.values))
+    w = np.zeros(3)
+
+    print(x.shape)
+    print(y.shape)
+    print(w.shape)
+
+    #grad = batch_gradient_descent(x, y, w)
+    result = opt.fmin_tnc(func=cost, x0=w, fprime=gradient, args=(x, y))
+
+    cost = cost(w, x, y)
+    #print(grad)
+    print(result)
+    print(cost)
