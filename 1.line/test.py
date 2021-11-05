@@ -2,15 +2,35 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import scipy.optimize as opt
+from sklearn import linear_model
 
 def sigmoid(z):
     return 1 / (1 + np.exp(-z))
 
-def gradient(w, x, y, alpha, lamda, epoch):
+def gradient(w, x, y, alpha):
     w = np.matrix(w)
     x = np.matrix(x)
     y = np.matrix(y)
-    paras = int(w.shape[1])
+    paras = w.shape[1]
+    grad = np.zeros(paras)
+    xlen = len(x)
+
+    error = sigmoid(x * w.T) - y
+    for j in range(paras):
+        val = np.multiply(error, x[:, j])
+
+        if j == 0:
+            grad[j] = np.sum(val) / xlen
+        else :
+            grad[j] = np.sum(val) / xlen + lamda / xlen * w[:,j]
+
+    return grad
+
+def gradient_descent(w, x, y, alpha, lamda, epoch):
+    w = np.matrix(w)
+    x = np.matrix(x)
+    y = np.matrix(y)
+    paras = w.shape[1]
     grad = np.zeros(w.shape)
     xlen = len(x)
 
@@ -18,19 +38,13 @@ def gradient(w, x, y, alpha, lamda, epoch):
         error = sigmoid(x * w.T) - y
         for j in range(paras):
             val = np.multiply(error, x[:, j])
-            grad[0,j] = w[0,j] - alpha * np.sum(val) / xlen
 
-            """
             if j == 0:
                 grad[0,j] = w[0,j] - alpha * np.sum(val) / xlen
             else :
-                #grad[0,j] = w[0,j] - alpha * np.sum(val) / xlen + lamda * w[0, j] / xlen
-                #grad[0,j] = w[0,j] * (1 + lamda / xlen) - alpha * np.sum(val) / xlen
                 grad[0,j] = w[0,j] - alpha * (np.sum(val) / xlen) + lamda / xlen * w[0,j]
-            """
         w = grad
-
-    return grad
+    return w
 
 def gradient_reg(w, x, y, lamda):
     w = np.matrix(w)
@@ -105,22 +119,20 @@ if __name__ == "__main__":
     y = np.array(y.values)
     w = np.zeros(x.shape[1])
 
-    epoch = 1000
+    epoch = 150000
     alpha = 0.01
     lamda = 1
-    #print(y)
-    g = gradient(w, x, y, alpha, lamda, epoch)
-    c = cost(w, x, y,lamda)
-    print(g)
-    print(c)
 
+    g = gradient_descent(w, x, y, alpha, lamda, epoch)
+    print(g)
+    c = cost(w, x, y, lamda)
+    print(c)
     predictions = predict(x, g)
-    print(predictions)
     correct = [1 if ((a == 1 and b == 1) or (a == 0 and b == 0)) else 0 for (a, b) in zip(predictions, y)]
     accuracy = (sum(map(int, correct)) % len(correct))
     print('accuracy = {0}%'.format(accuracy))
 
-    result = opt.fmin_tnc(func=cost, x0=w, fprime=gradient_reg, args=(x, y, lamda))
+    result = opt.fmin_tnc(func=cost, x0=w, fprime=gradient, args=(x, y, lamda))
     print(result)
 
     w_min = np.matrix(result[0])
@@ -128,3 +140,15 @@ if __name__ == "__main__":
     correct = [1 if ((a == 1 and b == 1) or (a == 0 and b == 0)) else 0 for (a, b) in zip(predictions, y)]
     accuracy = (sum(map(int, correct)) % len(correct))
     print('accuracy = {0}%'.format(accuracy))
+
+    model = linear_model.LogisticRegression(solver='liblinear', penalty='l2', C=1.0)
+    model.fit(x, y.ravel())
+    score = model.score(x, y)
+    print(model.intercept_, model.coef_)
+    print(score)
+
+    y_hat = model.predict(x)
+    y_test = y.ravel()
+    right = sum(y_hat == y_test)
+    y_hat = np.hstack((y_hat.reshape(-1,1), y_test.reshape(-1,1))) 
+    print('accuracy = {0}%'.format(int(right * 100.0 / y_hat.shape[0])))
