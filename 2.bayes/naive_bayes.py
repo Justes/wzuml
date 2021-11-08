@@ -34,7 +34,8 @@ class NaiveBayes:
             data[label].append(f)
 
         self.model = {
-            label: self.summarize(value) for label, value in data.items()
+            label: self.summarize(value)
+            for label, value in data.items()
         }
         return 'gaussianNB train done'
 
@@ -46,6 +47,7 @@ class NaiveBayes:
                 mean, stdev = value[i]
                 probabilities[label] *= self.gaussian_probability(input_data[i], mean, stdev)
 
+        #print(probabilities.items())
         return probabilities
 
     def predict(self, x_test):
